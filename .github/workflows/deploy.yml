@@ -1,0 +1,19 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Trigger Render Deploy
+        run: |
+          # Trigger Render deployment via webhook
+          curl -X POST https://api.render.com/deploy/srv-c9v6s7n8c5a6b (reemplazar con tu webhook de Render)
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
