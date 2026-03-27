@@ -31,7 +31,7 @@ function App() {
       setMessages(prev => [...prev, {
         id: `sys-${Date.now()}`,
         nickname: 'SISTEMA',
-        text: `${data.nickname} se unió`,
+        text: `${data.nickname} se uniï¿½`,
         timestamp: Date.now(),
         isSystem: true
       }]);
@@ -42,7 +42,7 @@ function App() {
       setMessages(prev => [...prev, {
         id: `sys-${Date.now()}`,
         nickname: 'SISTEMA',
-        text: `${data.nickname} se desconectó`,
+        text: `${data.nickname} se desconectï¿½`,
         timestamp: Date.now(),
         isSystem: true
       }]);
@@ -52,13 +52,13 @@ function App() {
   }, [SOCKET_SERVER]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end', inline: 'nearest' });
   }, [messages]);
 
   const handleLogin = (e) => {
     e.preventDefault();
     if (!nickname.trim() || !password.trim()) {
-      setLoginError('Pseudónimo y contraseña obligatorios');
+      setLoginError('Pseudï¿½nimo y contraseï¿½a obligatorios');
       return;
     }
     socket.emit('join_session', { nickname: nickname.trim(), password }, (res) => {
@@ -102,8 +102,8 @@ function App() {
         <div className="login-panel">
           <h1>Chat Seguro</h1>
           <form onSubmit={handleLogin}>
-            <input value={nickname} onChange={e => setNickname(e.target.value)} placeholder="Pseudónimo" />
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Contraseña" />
+            <input value={nickname} onChange={e => setNickname(e.target.value)} placeholder="Pseudï¿½nimo" />
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Contraseï¿½a" />
             {loginError && <p className="login-error">{loginError}</p>}
             <button type="submit">Conectar</button>
           </form>
@@ -117,7 +117,7 @@ function App() {
       <header className="top-bar">
         <div>
           <h2>?? Chat</h2>
-          <small>{users.length} en línea</small>
+          <small>{users.length} en lï¿½nea</small>
         </div>
         <button onClick={handleLogout}>Cerrar</button>
       </header>

@@ -1,8 +1,10 @@
 * { box-sizing: border-box; margin:0; padding:0; }
-html, body, #root { width:100vw; height:100vh; overflow:hidden; }
+html, body, #root { width:100vw; height:100vh; min-width:100vw; min-height:100vh; overflow:hidden; }
 body { font-family: 'Inter', sans-serif; background:#05061e; color:#e8e7ff; }
 
 .app-shell {
+  position: fixed;
+  inset: 0;
   width:100vw;
   height:100vh;
   display:flex;
