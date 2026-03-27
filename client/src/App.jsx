@@ -16,44 +16,39 @@ function App() {
   const SOCKET_SERVER = import.meta.env.VITE_SOCKET_SERVER || 'http://localhost:3000';
 
   useEffect(() => {
-    const newSocket = io(SOCKET_SERVER);
-    setSocket(newSocket);
+    const s = io(SOCKET_SERVER, { transports: ['websocket'] });
+    setSocket(s);
 
-    newSocket.on('receive_message', (message) => {
+    s.on('receive_message', (msg) => {
       setMessages(prev => {
-        // Evitar duplicados verificando si el mensaje ya existe
-        if (prev.some(m => m.id === message.id)) return prev;
-        return [...prev, message];
+        if (prev.some(m => m.id === msg.id)) return prev;
+        return [...prev, msg];
       });
     });
 
-    newSocket.on('user_joined', (data) => {
+    s.on('user_joined', (data) => {
       setUsers(data.users);
       setMessages(prev => [...prev, {
-        id: `system_${Date.now()}`,
+        id: `sys-${Date.now()}`,
         nickname: 'SISTEMA',
-        text: `✓ ${data.nickname} se conectó`,
+        text: `${data.nickname} se uni�`,
         timestamp: Date.now(),
         isSystem: true
       }]);
     });
 
-    newSocket.on('user_left', (data) => {
+    s.on('user_left', (data) => {
       setUsers(data.users);
       setMessages(prev => [...prev, {
-        id: `system_${Date.now()}`,
+        id: `sys-${Date.now()}`,
         nickname: 'SISTEMA',
-        text: `✗ ${data.nickname} se desconectó`,
+        text: `${data.nickname} se desconect�`,
         timestamp: Date.now(),
         isSystem: true
       }]);
     });
 
-    newSocket.on('session_closed', () => {
-      handleLogout();
-    });
-
-    return () => newSocket.close();
+    return () => s.disconnect();
   }, [SOCKET_SERVER]);
 
   useEffect(() => {
@@ -62,27 +57,18 @@ function App() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    setLoginError('');
-
-    if (!nickname.trim()) {
-      setLoginError('Ingresa un pseudónimo');
+    if (!nickname.trim() || !password.trim()) {
+      setLoginError('Pseud�nimo y contrase�a obligatorios');
       return;
     }
-
-    if (!password) {
-      setLoginError('Ingresa la contraseña');
-      return;
-    }
-
-    socket.emit('join_session', { password, nickname: nickname.trim() }, (response) => {
-      if (response.success) {
+    socket.emit('join_session', { nickname: nickname.trim(), password }, (res) => {
+      if (res.success) {
         setIsConnected(true);
-        setMessages(response.messages || []);
-        setUsers(response.users || []);
-        setPassword('');
-        setLoginError('');
+        setMessages(res.messages || []);
+        setUsers(res.users || []);
+        setPassword(''); setLoginError('');
       } else {
-        setLoginError(response.message);
+        setLoginError(res.message);
       }
     });
   };
@@ -90,17 +76,13 @@ function App() {
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
-
-    const message = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      nickname: nickname,
+    const localMsg = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+      nickname,
       text: inputValue.trim(),
       timestamp: Date.now()
     };
-
-    // Agregar mensaje localmente inmediatamente
-    setMessages(prev => [...prev, message]);
-
+    setMessages(prev => [...prev, localMsg]);
     socket.emit('send_message', { text: inputValue.trim() });
     setInputValue('');
   };
@@ -117,101 +99,52 @@ function App() {
   if (!isConnected) {
     return (
       <div className="login-container">
-        <div className="login-card">
-          <div className="login-icon">🔐</div>
-          <h1>CONEXIÓN SEGURA</h1>
-          <p className="subtitle">Chat secreto con pseudónimos</p>
-          
+        <div className="login-panel">
+          <h1>Chat Seguro</h1>
           <form onSubmit={handleLogin}>
-            <div className="form-group">
-              <input
-                type="text"
-                placeholder="Tu pseudónimo"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                className="input-field"
-              />
-            </div>
-            
-            <div className="form-group">
-              <input
-                type="password"
-                placeholder="Contraseña secreta"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input-field"
-              />
-            </div>
-
-            {loginError && <div className="error-message">{loginError}</div>}
-            
-            <button type="submit" className="login-btn">CONECTAR</button>
+            <input value={nickname} onChange={e => setNickname(e.target.value)} placeholder="Pseud�nimo" />
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Contrase�a" />
+            {loginError && <p className="login-error">{loginError}</p>}
+            <button type="submit">Conectar</button>
           </form>
-
-          <p className="hint">La contraseña será compartida solo entre ustedes</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="chat-container">
-      <div className="chat-header">
-        <div className="header-info">
-          <h1>🔐 CHAT SECRETO</h1>
-          <p>Pseudónimo: <strong>{nickname}</strong></p>
+    <div className="app-shell">
+      <header className="top-bar">
+        <div>
+          <h2>?? Chat</h2>
+          <small>{users.length} en l�nea</small>
         </div>
-        <div className="users-online">
-          <span>🟢 En línea ({users.length}):</span>
-          {users.map((user, idx) => (
-            <span key={idx} className="user-pill">{user}</span>
-          ))}
-        </div>
-        <button onClick={handleLogout} className="logout-btn">✕ CERRAR</button>
-      </div>
+        <button onClick={handleLogout}>Cerrar</button>
+      </header>
 
-      <div className="messages-container">
-        {messages.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-icon">💫</div>
-            <p>Esperando mensajes...</p>
-            <p className="empty-hint">Todo lo que se escriba aquí desaparecerá cuando termines</p>
-          </div>
-        )}
-        
+      <section className="message-area">
+        {messages.length === 0 && <div className="empty-state">No hay mensajes</div>}
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`message ${msg.isSystem ? 'system-message' : ''} ${msg.nickname === nickname ? 'own-message' : ''}`}
-          >
-            <div className="message-header">
-              <span className="message-nickname">
-                {msg.isSystem ? '⚡' : '✦'} {msg.nickname}
-              </span>
-              <span className="message-time">
-                {new Date(msg.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
-              </span>
+          <div key={msg.id} className={`bubble ${msg.isSystem ? 'system' : msg.nickname === nickname ? 'self' : 'other'}`}>
+            <div className="bubble-meta">
+              <span>{msg.isSystem ? 'Sistema' : msg.nickname}</span>
+              <span>{new Date(msg.timestamp).toLocaleTimeString()}</span>
             </div>
-            <div className="message-text">{msg.text}</div>
+            <p>{msg.text}</p>
           </div>
         ))}
         <div ref={messagesEndRef} />
-      </div>
+      </section>
 
-      <form onSubmit={handleSendMessage} className="input-form">
+      <form className="input-bar" onSubmit={handleSendMessage}>
         <input
-          type="text"
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Escribe aquí... (se borrará después de cerrar)"
-          className="message-input"
+          onChange={e => setInputValue(e.target.value)}
+          placeholder="Escribe tu mensaje..."
+          autoComplete="off"
         />
-        <button type="submit" className="send-btn">ENVIAR</button>
+        <button type="submit">Enviar</button>
       </form>
-
-      <div className="footer-info">
-        ⚠️ Todos los mensajes se eliminarán cuando cierres la sesión
-      </div>
     </div>
   );
 }
