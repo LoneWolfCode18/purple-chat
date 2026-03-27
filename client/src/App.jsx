@@ -20,7 +20,11 @@ function App() {
     setSocket(newSocket);
 
     newSocket.on('receive_message', (message) => {
-      setMessages(prev => [...prev, message]);
+      setMessages(prev => {
+        // Evitar duplicados verificando si el mensaje ya existe
+        if (prev.some(m => m.id === message.id)) return prev;
+        return [...prev, message];
+      });
     });
 
     newSocket.on('user_joined', (data) => {
@@ -86,6 +90,16 @@ function App() {
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
+
+    const message = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      nickname: nickname,
+      text: inputValue.trim(),
+      timestamp: Date.now()
+    };
+
+    // Agregar mensaje localmente inmediatamente
+    setMessages(prev => [...prev, message]);
 
     socket.emit('send_message', { text: inputValue.trim() });
     setInputValue('');
