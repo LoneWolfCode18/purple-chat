@@ -147,14 +147,29 @@ function App() {
   // Se muestra antes de conectarse; tiene overlay oscuro con efecto galaxia animado
   if (!isConnected) {
     return (
-      <div className="login-container">
-        <div className="login-panel">
-          <h1>Chat Seguro</h1>
+      <div className="login-wrapper">
+        <div className="login-card">
+          <h1>💜 Chat Seguro</h1>
+          <p>Ingresa tus datos para conectar</p>
+          
           <form onSubmit={handleLogin}>
-            <input value={nickname} onChange={e => setNickname(e.target.value)} placeholder="Pseudónimo" />
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Contraseña" />
+            <div className="input-group">
+              <input 
+                type="text" 
+                value={nickname} 
+                onChange={e => setNickname(e.target.value)} 
+                placeholder="Pseudónimo..." 
+              />
+              <input 
+                type="password" 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                placeholder="Contraseña..." 
+              />
+            </div>
+
             {loginError && <p className="login-error">{loginError}</p>}
-            <button type="submit">Conectar</button>
+            <button type="submit" className="btn-connect">CONECTAR</button>
           </form>
         </div>
       </div>

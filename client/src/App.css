@@ -124,3 +124,78 @@ body { font-family: 'Inter', sans-serif; background:#05061e; color:#e8e7ff; }
 .empty-state { text-align:center; padding:20px; color:#b9b4e5; }
 
 @keyframes fadeIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+
+/* Centrado absoluto sobre la galaxia */
+.login-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100vw;
+  background: transparent; /* Para que se vea la galaxia de fondo */
+}
+
+/* La tarjeta del login */
+.login-card {
+  background: rgba(18, 18, 43, 0.9); /* Oscuro semi-transparente */
+  padding: 40px;
+  border-radius: 20px;
+  border: 2px solid #bc13fe;
+  box-shadow: 0 0 25px rgba(188, 19, 254, 0.4);
+  text-align: center;
+  width: 350px;
+}
+
+.login-card h1 {
+  color: white;
+  margin-bottom: 10px;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.login-card p {
+  color: #b9b4e5;
+  margin-bottom: 30px;
+  font-size: 14px;
+}
+
+/* Estilo para los inputs */
+.login-card input {
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0;
+  background: #0b0b1a;
+  border: 1px solid #3d1054;
+  border-radius: 8px;
+  color: white;
+  outline: none;
+}
+
+.login-card input:focus {
+  border-color: #bc13fe;
+  box-shadow: 0 0 10px rgba(188, 19, 254, 0.5);
+}
+
+/* El botón de conectar */
+.btn-connect {
+  width: 100%;
+  padding: 12px;
+  margin-top: 20px;
+  background: #bc13fe;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.btn-connect:hover {
+  background: #a110db;
+  transform: scale(1.02);
+}
+
+.login-error {
+  color: #ff6b6b;
+  font-size: 14px;
+  margin-top: 10px;
+}
