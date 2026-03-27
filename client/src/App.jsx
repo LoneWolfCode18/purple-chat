@@ -16,11 +16,15 @@ function App() {
   const SOCKET_SERVER = import.meta.env.VITE_SOCKET_SERVER || 'http://localhost:3000';
 
   useEffect(() => {
-    // Crear socket una sola vez al montar
+    // 🔌 INICIALIZACIÓN DEL SOCKET
+    // Crear socket una sola vez al montar el componente
+    // reconnection: true permite reintentar automáticamente si se pierde conexión
     const socket = io(SOCKET_SERVER, { transports: ['websocket'], reconnection: true });
     setSocket(socket);
 
-    // Manejador receive_message con prevención de duplicados
+    // 📨 MANEJADOR: Recibir mensajes con prevención de eco/duplicados
+    // Valida que no exista un mensaje con el mismo ID antes de agregarlo
+    // Esto previene que un mismo mensaje aparezca dos veces (local + servidor)
     const handleReceiveMessage = (msg) => {
       setMessages(prev => {
         const isDuplicate = prev.some(m => m.id === msg.id);
@@ -28,7 +32,8 @@ function App() {
       });
     };
 
-    // Manejador user_joined con ID único
+    // 👤 MANEJADOR: Usuario se unió a la sesión
+    // Genera un ID único para el mensaje del sistema para evitar duplicados
     const handleUserJoined = (data) => {
       setUsers(data.users || []);
       setMessages(prev => [...prev, {
@@ -40,7 +45,8 @@ function App() {
       }]);
     };
 
-    // Manejador user_left con ID único
+    // 🚪 MANEJADOR: Usuario se desconectó de la sesión
+    // También con ID único del sistema para mantener integridad de duplicados
     const handleUserLeft = (data) => {
       setUsers(data.users || []);
       setMessages(prev => [...prev, {
@@ -52,12 +58,15 @@ function App() {
       }]);
     };
 
-    // Registrar todos los listeners
+    // 🎧 REGISTRAR TODOS LOS LISTENERS
+    // Se registran los manejadores específicos para que socket.off() funcione correctamente
     socket.on('receive_message', handleReceiveMessage);
     socket.on('user_joined', handleUserJoined);
     socket.on('user_left', handleUserLeft);
 
-    // Cleanup: desregistrar listeners y desconectar
+    // 🧹 CLEANUP: Desregistrar listeners y desconectar al desmontar
+    // Previene memory leaks y acumulación de listeners múltiples
+    // Si el componente se remonta, los listeners antiguos se eliminan primero
     return () => {
       socket.off('receive_message', handleReceiveMessage);
       socket.off('user_joined', handleUserJoined);
@@ -72,18 +81,28 @@ function App() {
 
   const handleLogin = (e) => {
     e.preventDefault();
+    
+    // ✅ VALIDACIÓN: Pseudónimo y contraseña requeridos
     if (!nickname.trim() || !password.trim()) {
       setLoginError('Pseudónimo y contraseña obligatorios');
       return;
     }
+    
+    // 🔐 EMITIR JOIN_SESSION al servidor
+    // El servidor valida la contraseña y asigna el usuario a una sesión
+    // Responde con success: true y los mensajes previos de esa sesión
     socket.emit('join_session', { nickname: nickname.trim(), password }, (res) => {
       if (res.success) {
+        // ✨ LOGIN EXITOSO
+        // Marcar como conectado y cargar los datos de la sesión
         setIsConnected(true);
         setMessages(res.messages || []);
         setUsers(res.users || []);
         setPassword('');
         setLoginError('');
       } else {
+        // ❌ LOGIN FALLÓ
+        // Mostrar error (contraseña incorrecta, pseudónimo duplicado, etc.)
         setLoginError(res.message);
       }
     });
@@ -93,6 +112,9 @@ function App() {
     e.preventDefault();
     if (!inputValue.trim()) return;
     
+    // 💬 CREAR MENSAJE LOCAL CON ID ÚNICO
+    // Se genera un ID único combinando timestamp + random para evitar colisiones
+    // Este ID se usará para validar duplicados cuando el servidor retransmita
     const localMsg = {
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
       nickname,
@@ -100,7 +122,14 @@ function App() {
       timestamp: Date.now()
     };
     
+    // ⚡ AGREGAR LOCALMENTE DE INMEDIATO
+    // El mensaje aparece al instante en la UI sin esperar confirmación del servidor
+    // Mejora UX: el usuario ve su mensaje inmediatamente
     setMessages(prev => [...prev, localMsg]);
+    
+    // 📤 EMITIR AL SERVIDOR
+    // El servidor recibe el mensaje y lo retransmite a otros usuarios
+    // Cuando vuelve por socket, la prevención de duplicados lo ignora (mismo ID)
     socket.emit('send_message', { text: inputValue.trim() });
     setInputValue('');
   };
@@ -114,6 +143,8 @@ function App() {
     setPassword('');
   };
 
+  // 🌌 PANTALLA DE LOGIN CON FONDO DE GALAXIA
+  // Se muestra antes de conectarse; tiene overlay oscuro con efecto galaxia animado
   if (!isConnected) {
     return (
       <div className="login-container">
@@ -130,6 +161,9 @@ function App() {
     );
   }
 
+  // 💬 PANTALLA DE CHAT (MODAL CENTRADO)
+  // Se muestra después del login exitoso
+  // Modal flotante centrado con scroll interno en mensajes
   return (
     <div className="modal-overlay">
       <div className="chat-modal">
