@@ -5,10 +5,15 @@ import cors from 'cors';
 
 const app = express();
 const httpServer = createServer(app);
-const io = new SocketIOServer(httpServer, {
+// Configuración de Socket.io con permisos para Render
+const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
-    methods: ["GET", "POST"]
+    origin: [
+      "https://purple-chat.onrender.com", 
+      "http://localhost:5173"
+    ],
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 

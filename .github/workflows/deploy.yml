@@ -14,6 +14,10 @@ jobs:
       - name: Trigger Render Deploy
         run: |
           # Trigger Render deployment via webhook
-          curl -X POST https://api.render.com/deploy/srv-c9v6s7n8c5a6b (reemplazar con tu webhook de Render)
+          if [ -n "$RENDER_DEPLOY_HOOK" ]; then
+            curl -X POST "$RENDER_DEPLOY_HOOK"
+          else
+            echo "No RENDER_DEPLOY_HOOK set, skipping deploy trigger"
+          fi
         env:
           RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
