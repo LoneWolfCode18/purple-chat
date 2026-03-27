@@ -22,7 +22,7 @@ body {
 #root {
   width: 100%;
   height: 100vh;
-  exhibit: flex;
+  display: flex;
 }
 
 /* LOGIN CONTAINER */
@@ -460,6 +460,7 @@ body {
 }
 
 .footer-info {
+  flex-shrink: 0;
   text-align: center;
   color: #9333ea;
   font-size: 11px;
@@ -468,6 +469,37 @@ body {
   border-top: 1px solid #6b21a8;
   position: relative;
   z-index: 5;
+}
+
+/* CHAT CONTAINER - Flexbox Layout Fix */
+.chat-container {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, #0a0e27 0%, #1a0033 25%, #150a2e 50%, #0f0420 75%, #0a0e27 100%);
+  background-size: 400% 400%;
+  animation: galaxyMove 15s ease infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+.chat-header {
+  flex-shrink: 0;
+  padding: 15px 20px;
+  background: rgba(15, 20, 50, 0.8);
+  border-bottom: 1px solid #6b21a8;
+  position: relative;
+  z-index: 4;
+}
+
+.input-form {
+  flex-shrink: 0;
+  padding: 15px 20px;
+  background: rgba(15, 20, 50, 0.8);
+  border-top: 1px solid #6b21a8;
+  position: relative;
+  z-index: 4;
 }
 
 /* Responsive */
