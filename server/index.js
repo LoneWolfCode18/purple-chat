@@ -120,10 +120,10 @@ io.on('connection', (socket) => {
     if (!session) return;
     
     const message = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: data.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       nickname: socket.nickname,
       text: data.text,
-      timestamp: Date.now()
+      timestamp: data.timestamp || Date.now()
     };
     
     session.messages.push(message);

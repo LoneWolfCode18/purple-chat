@@ -124,13 +124,15 @@ function App() {
     
     // ⚡ AGREGAR LOCALMENTE DE INMEDIATO
     // El mensaje aparece al instante en la UI sin esperar confirmación del servidor
-    // Mejora UX: el usuario ve su mensaje inmediatamente
     setMessages(prev => [...prev, localMsg]);
     
-    // 📤 EMITIR AL SERVIDOR
-    // El servidor recibe el mensaje y lo retransmite a otros usuarios
-    // Cuando vuelve por socket, la prevención de duplicados lo ignora (mismo ID)
-    socket.emit('send_message', { text: inputValue.trim() });
+    // 📤 EMITIR AL SERVIDOR CON SU PROPIO ID
+    // Usamos el mismo ID local para que el eco del servidor no genere un duplicado
+    socket.emit('send_message', {
+      id: localMsg.id,
+      text: localMsg.text,
+      timestamp: localMsg.timestamp
+    });
     setInputValue('');
   };
 
