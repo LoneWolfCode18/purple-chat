@@ -113,8 +113,9 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
-      <header className="top-bar">
+    <div className="modal-overlay">
+      <div className="chat-modal">
+        <header className="top-bar">
         <div>
           <h2>?? Chat</h2>
           <small>{users.length} en l�nea</small>
@@ -145,6 +146,7 @@ function App() {
         />
         <button type="submit">Enviar</button>
       </form>
+      </div>
     </div>
   );
 }
