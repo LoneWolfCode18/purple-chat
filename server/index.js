@@ -6,7 +6,7 @@ import cors from 'cors';
 const app = express();
 const httpServer = createServer(app);
 // Configuración de Socket.io con permisos para Render
-const io = new Server(httpServer, {
+const io = new SocketIOServer(httpServer, {
   cors: {
     origin: [
       "https://purple-chat.onrender.com", 
