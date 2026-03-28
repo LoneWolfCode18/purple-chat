@@ -9,7 +9,7 @@ const httpServer = createServer(app);
 const io = new SocketIOServer(httpServer, {
   cors: {
     origin: [
-      "https://purple-chat.onrender.com", 
+      "https://purple-chat.onrender.com",
       "http://localhost:5173"
     ],
     methods: ["GET", "POST"],
@@ -17,14 +17,65 @@ const io = new SocketIOServer(httpServer, {
   }
 });
 
-app.use(cors());
-app.use(express.json());
+app.use(cors({
+  origin: [
+    "https://purple-chat.onrender.com",
+    "http://localhost:5173"
+  ],
+  methods: ["GET", "POST"],
+  credentials: true
+}));
+app.use(express.json({ limit: '10kb' }));
 
 const PORT = process.env.PORT || 3000;
-const CHAT_PASSWORD = process.env.CHAT_PASSWORD || "secret123";
+const CHAT_PASSWORD = process.env.CHAT_PASSWORD;
+
+if (!CHAT_PASSWORD) {
+  console.error('ERROR: CHAT_PASSWORD no definido. Configure la variable de entorno antes de iniciar el servidor.');
+  process.exit(1);
+}
+
+const MAX_SESSIONS = 100;
+const MAX_USERS_PER_SESSION = 2;
+const MAX_MESSAGES_PER_SESSION = 100;
+const MAX_NICKNAME_LENGTH = 32;
+const MAX_MESSAGE_LENGTH = 512;
 
 // Estructura para almacenar sesiones de chat
 const sessions = new Map();
+
+const sanitizeString = (value, maxLength = 200) => {
+  if (typeof value !== 'string') return '';
+  return value
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .trim()
+    .slice(0, maxLength);
+};
+
+const isValidNickname = (value) => {
+  const nickname = sanitizeString(value, MAX_NICKNAME_LENGTH);
+  return nickname.length > 0;
+};
+
+const isValidMessage = (value) => {
+  if (typeof value !== 'string') return false;
+  const text = sanitizeString(value, MAX_MESSAGE_LENGTH);
+  return text.length > 0;
+};
+
+const getAvailableSessionId = () => {
+  for (const [id, session] of sessions.entries()) {
+    if (session.users.length < MAX_USERS_PER_SESSION) {
+      return id;
+    }
+  }
+
+  if (sessions.size >= MAX_SESSIONS) {
+    return null;
+  }
+
+  return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
 
 // Middleware para servir archivos estáticos
 app.use(express.static('public'));
@@ -38,62 +89,57 @@ io.on('connection', (socket) => {
   
   // Evento: Validar contraseña e iniciar sesión
   socket.on('join_session', (data, callback) => {
-    const { password, nickname } = data;
-    
+    if (typeof callback !== 'function') return;
+    if (!data || typeof data !== 'object') {
+      callback({ success: false, message: 'Payload inválido' });
+      return;
+    }
+
+    const password = String(data.password || '');
+    const nickname = sanitizeString(data.nickname, MAX_NICKNAME_LENGTH);
+
     if (password !== CHAT_PASSWORD) {
       callback({ success: false, message: 'Contraseña incorrecta' });
       return;
     }
-    
-    if (!nickname || nickname.trim() === '') {
+
+    if (!isValidNickname(nickname)) {
       callback({ success: false, message: 'Pseudónimo requerido' });
       return;
     }
-    
-    // Crear o obtener la sesión (limitada a dos usuarios)
-    let sessionId = null;
-    let user1 = null;
-    let user2 = null;
-    
-    // Buscar una sesión existente sin llenar
-    for (const [id, session] of sessions.entries()) {
-      if (session.users.length < 2) {
-        sessionId = id;
-        break;
-      }
-    }
-    
-    // Si no hay sesión disponible, crear una nueva
+
+    const sessionId = getAvailableSessionId();
     if (!sessionId) {
-      sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      callback({ success: false, message: 'Capacidad máxima de sesiones alcanzada. Intenta más tarde.' });
+      return;
+    }
+
+    if (!sessions.has(sessionId)) {
       sessions.set(sessionId, {
         users: [],
         messages: [],
         createdAt: Date.now()
       });
     }
-    
+
     const session = sessions.get(sessionId);
-    
-    // Verificar que no haya duplicados de pseudónimo
-    if (session.users.some(u => u.nickname === nickname)) {
+
+    if (session.users.some(u => u.nickname.toLowerCase() === nickname.toLowerCase())) {
       callback({ success: false, message: 'Este pseudónimo ya está en uso' });
       return;
     }
-    
-    // Añadir usuario a la sesión
+
     const user = {
       socketId: socket.id,
-      nickname: nickname,
+      nickname,
       joinedAt: Date.now()
     };
-    
+
     session.users.push(user);
     socket.join(sessionId);
     socket.sessionId = sessionId;
     socket.nickname = nickname;
-    
-    // Notificar éxito y enviar mensajes previos
+
     callback({
       success: true,
       sessionId,
@@ -101,37 +147,40 @@ io.on('connection', (socket) => {
       users: session.users.map(u => u.nickname),
       message: `Bienvenido ${nickname}`
     });
-    
-    // Notificar a otros usuarios que alguien se conectó
+
     io.to(sessionId).emit('user_joined', {
       nickname,
       totalUsers: session.users.length,
       users: session.users.map(u => u.nickname)
     });
-    
+
     console.log(`${nickname} se unió a ${sessionId}. Usuarios en sesión: ${session.users.length}`);
   });
   
   // Evento: Recibir mensaje
   socket.on('send_message', (data) => {
     if (!socket.sessionId) return;
-    
+
     const session = sessions.get(socket.sessionId);
     if (!session) return;
-    
+    if (!data || typeof data !== 'object' || !isValidMessage(data.text)) return;
+
+    const text = sanitizeString(data.text, MAX_MESSAGE_LENGTH);
     const message = {
       id: data.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       nickname: socket.nickname,
-      text: data.text,
+      text,
       timestamp: data.timestamp || Date.now()
     };
-    
+
     session.messages.push(message);
-    
-    // Emitir mensaje a todos en la sesión
+    if (session.messages.length > MAX_MESSAGES_PER_SESSION) {
+      session.messages.shift();
+    }
+
     io.to(socket.sessionId).emit('receive_message', message);
-    
-    console.log(`[${socket.sessionId}] ${socket.nickname}: ${data.text}`);
+
+    console.log(`[${socket.sessionId}] ${socket.nickname}: ${text}`);
   });
   
   // Evento: Usuario se desconecta
@@ -198,5 +247,4 @@ io.on('connection', (socket) => {
 
 httpServer.listen(PORT, () => {
   console.log(`🔐 Servidor de chat secreto escuchando en puerto ${PORT}`);
-  console.log(`📌 Contraseña: ${CHAT_PASSWORD}`);
 });
