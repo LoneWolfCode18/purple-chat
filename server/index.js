@@ -63,18 +63,32 @@ const isValidMessage = (value) => {
   return text.length > 0;
 };
 
-const getAvailableSessionId = () => {
+const getAvailablePublicSessionId = () => {
   for (const [id, session] of sessions.entries()) {
-    if (session.users.length < MAX_USERS_PER_SESSION) {
+    if (session.users.length < MAX_USERS_PER_SESSION && !session.roomPassword) {
       return id;
     }
   }
 
-  if (sessions.size >= MAX_SESSIONS) {
-    return null;
-  }
+  return null;
+};
 
-  return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+const generateRoomPassword = (length = 12) => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let password = '';
+  for (let i = 0; i < length; i++) {
+    password += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return password;
+};
+
+const findSessionByRoomPassword = (password) => {
+  for (const [id, session] of sessions.entries()) {
+    if (session.roomPassword === password) {
+      return { id, session };
+    }
+  }
+  return { id: null, session: null };
 };
 
 // Middleware para servir archivos estáticos
@@ -98,34 +112,52 @@ io.on('connection', (socket) => {
     const password = String(data.password || '');
     const nickname = sanitizeString(data.nickname, MAX_NICKNAME_LENGTH);
 
-    if (password !== CHAT_PASSWORD) {
-      callback({ success: false, message: 'Contraseña incorrecta' });
-      return;
-    }
-
     if (!isValidNickname(nickname)) {
       callback({ success: false, message: 'Pseudónimo requerido' });
       return;
     }
 
-    const sessionId = getAvailableSessionId();
-    if (!sessionId) {
-      callback({ success: false, message: 'Capacidad máxima de sesiones alcanzada. Intenta más tarde.' });
-      return;
-    }
+    const { id: roomId, session: roomSession } = findSessionByRoomPassword(password);
+    let sessionId = null;
+    let session = null;
 
-    if (!sessions.has(sessionId)) {
-      sessions.set(sessionId, {
-        users: [],
-        messages: [],
-        createdAt: Date.now()
-      });
-    }
+    if (roomSession) {
+      if (roomSession.users.length >= MAX_USERS_PER_SESSION) {
+        callback({ success: false, message: 'Sala llena' });
+        return;
+      }
 
-    const session = sessions.get(sessionId);
+      if (roomSession.users.some(u => u.nickname.toLowerCase() === nickname.toLowerCase())) {
+        callback({ success: false, message: 'Este pseudónimo ya está en uso' });
+        return;
+      }
 
-    if (session.users.some(u => u.nickname.toLowerCase() === nickname.toLowerCase())) {
-      callback({ success: false, message: 'Este pseudónimo ya está en uso' });
+      sessionId = roomId;
+      session = roomSession;
+    } else if (password === CHAT_PASSWORD) {
+      sessionId = getAvailablePublicSessionId();
+      if (!sessionId) {
+        if (sessions.size >= MAX_SESSIONS) {
+          callback({ success: false, message: 'Capacidad máxima de sesiones alcanzada. Intenta más tarde.' });
+          return;
+        }
+
+        sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        sessions.set(sessionId, {
+          users: [],
+          messages: [],
+          createdAt: Date.now()
+        });
+      }
+
+      session = sessions.get(sessionId);
+
+      if (session.users.some(u => u.nickname.toLowerCase() === nickname.toLowerCase())) {
+        callback({ success: false, message: 'Este pseudónimo ya está en uso' });
+        return;
+      }
+    } else {
+      callback({ success: false, message: 'Contraseña incorrecta' });
       return;
     }
 
@@ -155,6 +187,64 @@ io.on('connection', (socket) => {
     });
 
     console.log(`${nickname} se unió a ${sessionId}. Usuarios en sesión: ${session.users.length}`);
+  });
+
+  socket.on('create_session', (data, callback) => {
+    if (typeof callback !== 'function') return;
+    if (!data || typeof data !== 'object') {
+      callback({ success: false, message: 'Payload inválido' });
+      return;
+    }
+
+    const nickname = sanitizeString(data.nickname, MAX_NICKNAME_LENGTH);
+    if (!isValidNickname(nickname)) {
+      callback({ success: false, message: 'Pseudónimo requerido para crear sala' });
+      return;
+    }
+
+    if (sessions.size >= MAX_SESSIONS) {
+      callback({ success: false, message: 'Capacidad máxima de sesiones alcanzada. Intenta más tarde.' });
+      return;
+    }
+
+    const roomPassword = generateRoomPassword();
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const session = {
+      users: [],
+      messages: [],
+      roomPassword,
+      createdAt: Date.now()
+    };
+
+    const user = {
+      socketId: socket.id,
+      nickname,
+      joinedAt: Date.now()
+    };
+
+    session.users.push(user);
+    sessions.set(sessionId, session);
+    socket.join(sessionId);
+    socket.sessionId = sessionId;
+    socket.nickname = nickname;
+
+    callback({
+      success: true,
+      sessionId,
+      roomPassword,
+      messages: session.messages,
+      users: session.users.map(u => u.nickname),
+      message: `Sala creada. Comparte esta contraseña para que otro usuario se una.`
+    });
+
+    io.to(sessionId).emit('user_joined', {
+      nickname,
+      totalUsers: session.users.length,
+      users: session.users.map(u => u.nickname),
+      roomPassword
+    });
+
+    console.log(`${nickname} creó la sala ${sessionId} con contraseña ${roomPassword}`);
   });
   
   // Evento: Recibir mensaje

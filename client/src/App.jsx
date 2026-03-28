@@ -8,6 +8,8 @@ function App() {
   const [inputValue, setInputValue] = useState('');
   const [nickname, setNickname] = useState('');
   const [password, setPassword] = useState('');
+  const [generatedPassword, setGeneratedPassword] = useState('');
+  const [roomCreated, setRoomCreated] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [users, setUsers] = useState([]);
   const [socket, setSocket] = useState(null);
@@ -99,10 +101,37 @@ function App() {
         setMessages(res.messages || []);
         setUsers(res.users || []);
         setPassword('');
+        setGeneratedPassword('');
+        setRoomCreated(false);
         setLoginError('');
       } else {
         // ❌ LOGIN FALLÓ
         // Mostrar error (contraseña incorrecta, pseudónimo duplicado, etc.)
+        setLoginError(res.message);
+      }
+    });
+  };
+
+  const handleCreateRoom = (e) => {
+    e.preventDefault();
+
+    if (!nickname.trim()) {
+      setLoginError('Pseudónimo requerido para crear sala');
+      return;
+    }
+
+    if (!socket) return;
+
+    socket.emit('create_session', { nickname: nickname.trim() }, (res) => {
+      if (res.success) {
+        setIsConnected(true);
+        setMessages(res.messages || []);
+        setUsers(res.users || []);
+        setGeneratedPassword(res.roomPassword || '');
+        setRoomCreated(true);
+        setPassword('');
+        setLoginError('');
+      } else {
         setLoginError(res.message);
       }
     });
@@ -143,6 +172,9 @@ function App() {
     setUsers([]);
     setNickname('');
     setPassword('');
+    setGeneratedPassword('');
+    setRoomCreated(false);
+    setLoginError('');
   };
 
   // 🌌 PANTALLA DE LOGIN CON FONDO DE GALAXIA
@@ -171,7 +203,10 @@ function App() {
             </div>
 
             {loginError && <p className="login-error">{loginError}</p>}
-            <button type="submit" className="btn-connect">CONECTAR</button>
+            <div className="login-actions">
+              <button type="submit" className="btn-connect">CONECTAR</button>
+              <button type="button" className="btn-generate" onClick={handleCreateRoom}>GENERAR SALA SEGURA</button>
+            </div>
           </form>
         </div>
       </div>
@@ -188,6 +223,11 @@ function App() {
           <div>
             <h2>🔐 Chat</h2>
             <small>{users.length} en línea</small>
+            {roomCreated && generatedPassword && (
+              <div className="room-info">
+                Contraseña de sala: <strong>{generatedPassword}</strong>
+              </div>
+            )}
           </div>
           <button onClick={handleLogout}>Cerrar</button>
         </header>
