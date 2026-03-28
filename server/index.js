@@ -2,6 +2,9 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
@@ -78,6 +81,25 @@ const generateRoomPassword = (length = 12) => {
   let password = '';
   for (let i = 0; i < length; i++) {
     password += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return password;
+};
+
+const isRoomPasswordTaken = (password) => {
+  for (const session of sessions.values()) {
+    if (session.roomPassword === password) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const generateUniqueRoomPassword = (length = 12) => {
+  let password = generateRoomPassword(length);
+  let tries = 0;
+  while (isRoomPasswordTaken(password) && tries < 20) {
+    password = generateRoomPassword(length);
+    tries += 1;
   }
   return password;
 };
@@ -207,7 +229,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const roomPassword = generateRoomPassword();
+    const roomPassword = generateUniqueRoomPassword();
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const session = {
       users: [],

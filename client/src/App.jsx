@@ -11,6 +11,7 @@ function App() {
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [roomCreated, setRoomCreated] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const messageIdsRef = useRef(new Set());
   const [users, setUsers] = useState([]);
   const [socket, setSocket] = useState(null);
   const messagesEndRef = useRef(null);
@@ -24,14 +25,17 @@ function App() {
     const socket = io(SOCKET_SERVER, { transports: ['websocket'], reconnection: true });
     setSocket(socket);
 
+    const addMessage = (msg) => {
+      if (!msg || !msg.id) return;
+      if (messageIdsRef.current.has(msg.id)) return;
+      messageIdsRef.current.add(msg.id);
+      setMessages(prev => [...prev, msg]);
+    };
+
     // 📨 MANEJADOR: Recibir mensajes con prevención de eco/duplicados
     // Valida que no exista un mensaje con el mismo ID antes de agregarlo
-    // Esto previene que un mismo mensaje aparezca dos veces (local + servidor)
     const handleReceiveMessage = (msg) => {
-      setMessages(prev => {
-        const isDuplicate = prev.some(m => m.id === msg.id);
-        return isDuplicate ? prev : [...prev, msg];
-      });
+      addMessage(msg);
     };
 
     // 👤 MANEJADOR: Usuario se unió a la sesión
@@ -62,6 +66,9 @@ function App() {
 
     // 🎧 REGISTRAR TODOS LOS LISTENERS
     // Se registran los manejadores específicos para que socket.off() funcione correctamente
+    socket.off('receive_message', handleReceiveMessage);
+    socket.off('user_joined', handleUserJoined);
+    socket.off('user_left', handleUserLeft);
     socket.on('receive_message', handleReceiveMessage);
     socket.on('user_joined', handleUserJoined);
     socket.on('user_left', handleUserLeft);
@@ -99,6 +106,7 @@ function App() {
         // Marcar como conectado y cargar los datos de la sesión
         setIsConnected(true);
         setMessages(res.messages || []);
+        messageIdsRef.current = new Set((res.messages || []).map((m) => m.id).filter(Boolean));
         setUsers(res.users || []);
         setPassword('');
         setGeneratedPassword('');
@@ -126,6 +134,7 @@ function App() {
       if (res.success) {
         setIsConnected(true);
         setMessages(res.messages || []);
+        messageIdsRef.current = new Set((res.messages || []).map((m) => m.id).filter(Boolean));
         setUsers(res.users || []);
         setGeneratedPassword(res.roomPassword || '');
         setRoomCreated(true);
@@ -153,7 +162,10 @@ function App() {
     
     // ⚡ AGREGAR LOCALMENTE DE INMEDIATO
     // El mensaje aparece al instante en la UI sin esperar confirmación del servidor
-    setMessages(prev => [...prev, localMsg]);
+    if (!messageIdsRef.current.has(localMsg.id)) {
+      messageIdsRef.current.add(localMsg.id);
+      setMessages(prev => [...prev, localMsg]);
+    }
     
     // 📤 EMITIR AL SERVIDOR CON SU PROPIO ID
     // Usamos el mismo ID local para que el eco del servidor no genere un duplicado
@@ -169,6 +181,7 @@ function App() {
     socket.emit('leave_session');
     setIsConnected(false);
     setMessages([]);
+    messageIdsRef.current.clear();
     setUsers([]);
     setNickname('');
     setPassword('');
