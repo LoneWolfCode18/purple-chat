@@ -11,6 +11,8 @@ function App() {
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [roomCreated, setRoomCreated] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
+  const [mode, setMode] = useState('join');
   const messageIdsRef = useRef(new Set());
   const [users, setUsers] = useState([]);
   const [socket, setSocket] = useState(null);
@@ -91,9 +93,9 @@ function App() {
   const handleLogin = (e) => {
     e.preventDefault();
     
-    // ✅ VALIDACIÓN: Pseudónimo y contraseña requeridos
+    // ✅ VALIDACIÓN: Pseudónimo y clave de sala requeridos
     if (!nickname.trim() || !password.trim()) {
-      setLoginError('Pseudónimo y contraseña obligatorios');
+      setLoginError('Pseudónimo y clave de sala obligatorios');
       return;
     }
     
@@ -112,16 +114,19 @@ function App() {
         setGeneratedPassword('');
         setRoomCreated(false);
         setLoginError('');
+        setStatusMessage('Has entrado a la sala correctamente');
       } else {
         // ❌ LOGIN FALLÓ
         // Mostrar error (contraseña incorrecta, pseudónimo duplicado, etc.)
         setLoginError(res.message);
+        setStatusMessage('');
       }
     });
   };
 
   const handleCreateRoom = (e) => {
     e.preventDefault();
+    setStatusMessage('');
 
     if (!nickname.trim()) {
       setLoginError('Pseudónimo requerido para crear sala');
@@ -140,6 +145,7 @@ function App() {
         setRoomCreated(true);
         setPassword('');
         setLoginError('');
+        setStatusMessage('Sala creada. Comparte la clave con quien quieras invitar.');
       } else {
         setLoginError(res.message);
       }
@@ -177,6 +183,24 @@ function App() {
     setInputValue('');
   };
 
+  const handleModeChange = (newMode) => {
+    setMode(newMode);
+    setLoginError('');
+    setStatusMessage('');
+    setPassword('');
+  };
+
+  const handleCopyRoomPassword = () => {
+    if (!generatedPassword) return;
+    navigator.clipboard.writeText(generatedPassword).then(() => {
+      setStatusMessage('Clave copiada al portapapeles');
+      setLoginError('');
+    }).catch(() => {
+      setLoginError('No se pudo copiar la clave automáticamente');
+      setStatusMessage('');
+    });
+  };
+
   const handleLogout = () => {
     socket.emit('leave_session');
     setIsConnected(false);
@@ -188,6 +212,7 @@ function App() {
     setGeneratedPassword('');
     setRoomCreated(false);
     setLoginError('');
+    setStatusMessage('');
   };
 
   // 🌌 PANTALLA DE LOGIN CON FONDO DE GALAXIA
@@ -197,9 +222,26 @@ function App() {
       <div className="login-wrapper">
         <div className="login-card">
           <h1>💜 Chat Seguro</h1>
-          <p>Ingresa tus datos para conectar</p>
+          <p>Selecciona crear una sala privada o entrar con una clave existente.</p>
           
-          <form onSubmit={handleLogin}>
+          <form onSubmit={mode === 'join' ? handleLogin : handleCreateRoom}>
+            <div className="mode-switch">
+              <button
+                type="button"
+                className={mode === 'join' ? 'active' : ''}
+                onClick={() => { setMode('join'); setLoginError(''); setStatusMessage(''); setPassword(''); }}
+              >
+                Entrar a sala
+              </button>
+              <button
+                type="button"
+                className={mode === 'create' ? 'active' : ''}
+                onClick={() => { setMode('create'); setLoginError(''); setStatusMessage(''); setPassword(''); }}
+              >
+                Crear sala segura
+              </button>
+            </div>
+
             <div className="input-group">
               <input 
                 type="text" 
@@ -207,18 +249,25 @@ function App() {
                 onChange={e => setNickname(e.target.value)} 
                 placeholder="Pseudónimo..." 
               />
-              <input 
-                type="password" 
-                value={password} 
-                onChange={e => setPassword(e.target.value)} 
-                placeholder="Contraseña..." 
-              />
+              {mode === 'join' && (
+                <input 
+                  type="password" 
+                  value={password} 
+                  onChange={e => setPassword(e.target.value)} 
+                  placeholder="Clave de sala..." 
+                />
+              )}
             </div>
 
+            {mode === 'create' && (
+              <p className="login-note">Al crear sala, se generará una clave privada para compartir.</p>
+            )}
             {loginError && <p className="login-error">{loginError}</p>}
+            {statusMessage && !loginError && <p className="login-status">{statusMessage}</p>}
             <div className="login-actions">
-              <button type="submit" className="btn-connect">CONECTAR</button>
-              <button type="button" className="btn-generate" onClick={handleCreateRoom}>GENERAR SALA SEGURA</button>
+              <button type="submit" className="btn-connect">
+                {mode === 'join' ? 'CONECTAR' : 'CREAR SALA'}
+              </button>
             </div>
           </form>
         </div>
@@ -239,6 +288,9 @@ function App() {
             {roomCreated && generatedPassword && (
               <div className="room-info">
                 Contraseña de sala: <strong>{generatedPassword}</strong>
+                <button type="button" className="btn-copy" onClick={handleCopyRoomPassword} title="Copiar clave">
+                  📋
+                </button>
               </div>
             )}
           </div>

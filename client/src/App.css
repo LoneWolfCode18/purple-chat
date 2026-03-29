@@ -258,6 +258,152 @@ body::after {
   font-size: 14px;
 }
 
+.mode-switch {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.mode-switch button {
+  flex: 1;
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  background: rgba(15, 10, 40, 0.8);
+  color: #dcd6ff;
+  border-radius: 999px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-switch button.active,
+.mode-switch button:hover {
+  background: linear-gradient(135deg, rgba(168,85,247,0.95), rgba(99,102,241,0.95));
+  color: #fff;
+  border-color: transparent;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.input-group input {
+  width: 100%;
+  border: 1px solid rgba(147, 51, 234, 0.35);
+  border-radius: 999px;
+  background: rgba(12, 12, 34, 0.9);
+  color: #fff;
+  padding: 14px 16px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-group input::placeholder {
+  color: #b9b4e5;
+}
+
+.input-group input:focus {
+  border-color: rgba(168, 85, 247, 0.75);
+  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.12);
+}
+
+.login-actions {
+  margin-top: 10px;
+}
+
+.btn-connect {
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #a855f7, #f43f5e);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.2s ease;
+}
+
+.btn-connect:hover {
+  filter: brightness(1.05);
+}
+
+.mode-switch {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.mode-switch button {
+  flex: 1;
+  border: 1px solid rgba(168, 85, 247, 0.45);
+  background: rgba(15, 10, 40, 0.8);
+  color: #dcd6ff;
+  border-radius: 999px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-switch button.active,
+.mode-switch button:hover {
+  background: linear-gradient(135deg, rgba(168,85,247,0.95), rgba(99,102,241,0.95));
+  color: #fff;
+  border-color: transparent;
+}
+
+.login-note,
+.login-status,
+.login-error {
+  text-align: left;
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+}
+
+.login-note {
+  color: #d4bbff;
+  background: rgba(79, 70, 229, 0.12);
+  border: 1px solid rgba(79, 70, 229, 0.25);
+}
+
+.login-status {
+  color: #dbf2ff;
+  background: rgba(59, 208, 255, 0.1);
+  border: 1px solid rgba(59, 208, 255, 0.2);
+}
+
+.login-error {
+  color: #ffd6d6;
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+.room-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.btn-copy {
+  border: none;
+  background: rgba(168, 85, 247, 0.18);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-copy:hover {
+  background: rgba(168, 85, 247, 0.36);
+}
+
 /* Estilo para los inputs */
 .login-card input {
   width: 100%;
