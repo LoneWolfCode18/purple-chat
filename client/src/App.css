@@ -187,7 +187,31 @@ body::after {
   font-weight:700;
   cursor:pointer;
 }
-
+.file-input {
+  display: none;
+}
+.photo-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(168,85,247,.45);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+.chat-feedback {
+  padding: 0 16px 10px;
+}
+.image-message img {
+  max-width: 100%;
+  border-radius: 14px;
+  display: block;
+  margin-top: 6px;
+}
 .empty-state { text-align:center; padding:20px; color:#b9b4e5; }
 
 @keyframes fadeIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }

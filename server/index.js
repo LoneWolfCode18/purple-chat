@@ -33,9 +33,11 @@ app.use(express.json({ limit: '10kb' }));
 const PORT = process.env.PORT || 3000;
 const MAX_SESSIONS = 100;
 const MAX_USERS_PER_SESSION = 2;
-const MAX_MESSAGES_PER_SESSION = 100;
+const MAX_MESSAGES_PER_SESSION = 1000;
 const MAX_NICKNAME_LENGTH = 32;
 const MAX_MESSAGE_LENGTH = 512;
+const MAX_IMAGE_SIZE_BYTES = 512 * 1024; // 512 KB
+const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif']);
 
 // Estructura para almacenar sesiones de chat
 const sessions = new Map();
@@ -57,6 +59,21 @@ const isValidMessage = (value) => {
   if (typeof value !== 'string') return false;
   const text = sanitizeString(value, MAX_MESSAGE_LENGTH);
   return text.length > 0;
+};
+
+const getBase64PayloadSize = (base64String) => {
+  const padding = base64String.endsWith('==') ? 2 : base64String.endsWith('=') ? 1 : 0;
+  return Math.floor((base64String.length * 3) / 4) - padding;
+};
+
+const isValidImagePayload = (value) => {
+  if (typeof value !== 'string') return false;
+  const match = value.match(/^data:(image\/(png|jpe?g|webp|gif));base64,([A-Za-z0-9+/]+=*)$/i);
+  if (!match) return false;
+  const mimeType = match[1].toLowerCase();
+  if (!ALLOWED_IMAGE_MIME_TYPES.has(mimeType)) return false;
+  const payload = match[3];
+  return getBase64PayloadSize(payload) <= MAX_IMAGE_SIZE_BYTES;
 };
 
 const generateRoomPassword = (length = 12) => {
@@ -95,6 +112,7 @@ const findSessionByRoomPassword = (password) => {
   }
   return { id: null, session: null };
 };
+
 
 // Middleware para servir archivos estáticos
 app.use(express.static('public'));
@@ -239,15 +257,25 @@ io.on('connection', (socket) => {
 
     const session = sessions.get(socket.sessionId);
     if (!session) return;
-    if (!data || typeof data !== 'object' || !isValidMessage(data.text)) return;
+    if (!data || typeof data !== 'object') return;
 
-    const text = sanitizeString(data.text, MAX_MESSAGE_LENGTH);
     const message = {
       id: data.id || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       nickname: socket.nickname,
-      text,
-      timestamp: data.timestamp || Date.now()
+      timestamp: data.timestamp || Date.now(),
+      type: data.type === 'image' ? 'image' : 'text'
     };
+
+    if (message.type === 'image') {
+      if (!isValidImagePayload(data.image)) return;
+      message.image = data.image;
+      message.text = typeof data.text === 'string'
+        ? sanitizeString(data.text, MAX_MESSAGE_LENGTH)
+        : '';
+    } else {
+      if (!isValidMessage(data.text)) return;
+      message.text = sanitizeString(data.text, MAX_MESSAGE_LENGTH);
+    }
 
     session.messages.push(message);
     if (session.messages.length > MAX_MESSAGES_PER_SESSION) {
@@ -256,7 +284,7 @@ io.on('connection', (socket) => {
 
     io.to(socket.sessionId).emit('receive_message', message);
 
-    console.log(`[${socket.sessionId}] ${socket.nickname}: ${text}`);
+    console.log(`[${socket.sessionId}] ${socket.nickname}: ${message.type === 'image' ? '📷 imagen enviada' : message.text}`);
   });
   
   // Evento: Usuario se desconecta
@@ -271,17 +299,8 @@ io.on('connection', (socket) => {
         console.log(`${socket.nickname} se desconectó. Usuarios restantes: ${session.users.length}`);
         
         if (session.users.length === 0) {
-          // Si no hay usuarios, eliminar la sesión después de un tiempo
-          setTimeout(() => {
-            if (session.users.length === 0) {
-              sessions.delete(socket.sessionId);
-              console.log(`Sesión ${socket.sessionId} fue eliminada (vacía)`);
-            }
-          }, 5000);
-          
-          io.to(socket.sessionId).emit('session_closed', {
-            message: 'La sesión ha sido cerrada. Todos los mensajes fueron eliminados.'
-          });
+          sessions.delete(socket.sessionId);
+          console.log(`Sesión ${socket.sessionId} eliminada porque no hay usuarios conectados`);
         } else {
           // Notificar a otros que alguien se fue
           io.to(socket.sessionId).emit('user_left', {
@@ -312,7 +331,7 @@ io.on('connection', (socket) => {
         
         if (session.users.length === 0) {
           sessions.delete(socket.sessionId);
-          console.log(`Sesión ${socket.sessionId} fue eliminada`);
+          console.log(`Sesión ${socket.sessionId} eliminada manualmente tras cerrar la sala`);
         }
       }
     }

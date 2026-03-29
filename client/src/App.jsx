@@ -12,8 +12,11 @@ function App() {
   const [roomCreated, setRoomCreated] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
+  const [chatError, setChatError] = useState('');
   const [mode, setMode] = useState('join');
   const messageIdsRef = useRef(new Set());
+  const MAX_IMAGE_SIZE_BYTES = 512 * 1024; // 512 KB
+  const ALLOWED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
   const [users, setUsers] = useState([]);
   const [socket, setSocket] = useState(null);
   const messagesEndRef = useRef(null);
@@ -114,11 +117,13 @@ function App() {
         setGeneratedPassword('');
         setRoomCreated(false);
         setLoginError('');
+        setChatError('');
         setStatusMessage('Has entrado a la sala correctamente');
       } else {
         // ❌ LOGIN FALLÓ
         // Mostrar error (contraseña incorrecta, pseudónimo duplicado, etc.)
         setLoginError(res.message);
+        setChatError('');
         setStatusMessage('');
       }
     });
@@ -145,6 +150,7 @@ function App() {
         setRoomCreated(true);
         setPassword('');
         setLoginError('');
+        setChatError('');
         setStatusMessage('Sala creada. Comparte la clave con quien quieras invitar.');
       } else {
         setLoginError(res.message);
@@ -162,6 +168,7 @@ function App() {
     const localMsg = {
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
       nickname,
+      type: 'text',
       text: inputValue.trim(),
       timestamp: Date.now()
     };
@@ -177,15 +184,87 @@ function App() {
     // Usamos el mismo ID local para que el eco del servidor no genere un duplicado
     socket.emit('send_message', {
       id: localMsg.id,
+      type: 'text',
       text: localMsg.text,
       timestamp: localMsg.timestamp
     });
     setInputValue('');
   };
 
+  const handleImageSelected = (event) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    setChatError('');
+    setStatusMessage('');
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setChatError('Formato de imagen no admitido. Usa PNG, JPG, WEBP o GIF.');
+      input.value = '';
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setChatError('La imagen es demasiado grande. Máx 512 KB.');
+      input.value = '';
+      return;
+    }
+
+    if (!socket) {
+      setChatError('No estás conectado al servidor.');
+      input.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== 'string' || !result.startsWith('data:image/')) {
+        setChatError('No se pudo procesar la imagen.');
+        input.value = '';
+        return;
+      }
+
+      const localMsg = {
+        id: `msg-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+        nickname,
+        type: 'image',
+        image: result,
+        timestamp: Date.now(),
+        text: ''
+      };
+
+      if (!messageIdsRef.current.has(localMsg.id)) {
+        messageIdsRef.current.add(localMsg.id);
+        setMessages(prev => [...prev, localMsg]);
+      }
+
+      socket.emit('send_message', {
+        id: localMsg.id,
+        type: 'image',
+        image: result,
+        timestamp: localMsg.timestamp
+      });
+
+      setStatusMessage('Imagen enviada');
+      setLoginError('');
+      setChatError('');
+      input.value = '';
+    };
+
+    reader.onerror = () => {
+      setChatError('Error leyendo la imagen.');
+      input.value = '';
+    };
+
+    reader.readAsDataURL(file);
+  };
+
   const handleModeChange = (newMode) => {
     setMode(newMode);
     setLoginError('');
+    setChatError('');
     setStatusMessage('');
     setPassword('');
   };
@@ -212,6 +291,7 @@ function App() {
     setGeneratedPassword('');
     setRoomCreated(false);
     setLoginError('');
+    setChatError('');
     setStatusMessage('');
   };
 
@@ -297,6 +377,13 @@ function App() {
           <button onClick={handleLogout}>Cerrar</button>
         </header>
 
+        {(chatError || statusMessage) && (
+          <div className="chat-feedback">
+            {chatError && <p className="login-error">{chatError}</p>}
+            {!chatError && statusMessage && <p className="login-status">{statusMessage}</p>}
+          </div>
+        )}
+
         <section className="message-area">
           {messages.length === 0 && <div className="empty-state">No hay mensajes</div>}
           {messages.map((msg) => (
@@ -305,13 +392,28 @@ function App() {
                 <span>{msg.isSystem ? 'Sistema' : msg.nickname}</span>
                 <span>{new Date(msg.timestamp).toLocaleTimeString()}</span>
               </div>
-              <p>{msg.text}</p>
+              {msg.type === 'image' && msg.image ? (
+                <div className="image-message">
+                  <img src={msg.image} alt={msg.text || 'Imagen compartida'} />
+                  {msg.text && <p>{msg.text}</p>}
+                </div>
+              ) : (
+                <p>{msg.text}</p>
+              )}
             </div>
           ))}
           <div ref={messagesEndRef} />
         </section>
 
         <form className="input-bar" onSubmit={handleSendMessage}>
+          <label htmlFor="image-upload" className="photo-button" title="Enviar foto">📷</label>
+          <input
+            id="image-upload"
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            className="file-input"
+            onChange={handleImageSelected}
+          />
           <input
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
