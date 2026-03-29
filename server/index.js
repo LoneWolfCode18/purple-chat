@@ -61,6 +61,8 @@ const isValidMessage = (value) => {
   return text.length > 0;
 };
 
+const normalizeRoomPassword = (value) => sanitizeString(String(value || '')).toLowerCase();
+
 const getBase64PayloadSize = (base64String) => {
   const padding = base64String.endsWith('==') ? 2 : base64String.endsWith('=') ? 1 : 0;
   return Math.floor((base64String.length * 3) / 4) - padding;
@@ -86,8 +88,9 @@ const generateRoomPassword = (length = 12) => {
 };
 
 const isRoomPasswordTaken = (password) => {
+  const normalized = normalizeRoomPassword(password);
   for (const session of sessions.values()) {
-    if (session.roomPassword === password) {
+    if (normalizeRoomPassword(session.roomPassword) === normalized) {
       return true;
     }
   }
@@ -105,8 +108,9 @@ const generateUniqueRoomPassword = (length = 12) => {
 };
 
 const findSessionByRoomPassword = (password) => {
+  const normalized = normalizeRoomPassword(password);
   for (const [id, session] of sessions.entries()) {
-    if (session.roomPassword === password) {
+    if (normalizeRoomPassword(session.roomPassword) === normalized) {
       return { id, session };
     }
   }
@@ -299,8 +303,7 @@ io.on('connection', (socket) => {
         console.log(`${socket.nickname} se desconectó. Usuarios restantes: ${session.users.length}`);
         
         if (session.users.length === 0) {
-          sessions.delete(socket.sessionId);
-          console.log(`Sesión ${socket.sessionId} eliminada porque no hay usuarios conectados`);
+          console.log(`Sesión ${socket.sessionId} queda vacía y se mantiene activa hasta que se cierre manualmente`);
         } else {
           // Notificar a otros que alguien se fue
           io.to(socket.sessionId).emit('user_left', {
